@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Sports Streams</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>StreamZone</h1>
+            <div class="header-controls">
+                <input type="search" id="search-bar" placeholder="Search for a team or tournament...">
+                <div class="timezone-display">
+                    Your Timezone: <span id="timezone"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="filters">
+            <div id="date-filter" class="filter-group">
+                </div>
+            <div id="sport-filter" class="filter-group">
+                </div>
+        </nav>
+        
+        <div id="event-list">
+            <div class="loader"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p><strong>Disclaimer:</strong> This site provides embed links to content hosted on third-party websites. We do not host any of the content ourselves and are not responsible for its legality or quality.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
