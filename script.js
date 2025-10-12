@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="match">${event.match}</div>
                                 <div class="tournament">${event.tournament}</div>
                             </div>
-                            <a href="${watchUrl}" class="watch-btn">Watch Now &raquo;</a>
+                            <a href="${watchUrl}" class="watch-btn" target="_blank" rel="noopener noreferrer">Watch Now &raquo;</a>
                         </div>
                     `;
                 });
@@ -215,4 +215,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- START THE APP ---
     init();
+
 });
