@@ -10,14 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateFilterEl = document.getElementById('date-filter');
     const sportFilterEl = document.getElementById('sport-filter');
     const searchBarEl = document.getElementById('search-bar');
-    const timezoneEl = document.getElementById('timezone');
+    // REMOVED: const timezoneEl = document.getElementById('timezone');
 
     // --- INITIALIZATION ---
     const init = async () => {
         const currentTime = new Date();
         selectedDate = formatDate(currentTime);
         
-        displayUserTimezone();
+        // REMOVED: displayUserTimezone(); call
         await fetchEvents();
         setupEventListeners();
         renderPage();
@@ -50,13 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderEventList();
     };
 
-    const displayUserTimezone = () => {
-        try {
-            timezoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        } catch (e) {
-            timezoneEl.textContent = 'N/A';
-        }
-    };
+    // REMOVED: The entire displayUserTimezone() function is gone.
     
     const renderDateFilters = () => {
         const dates = Object.keys(allEventsData).sort();
@@ -81,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventsForDate = allEventsData[selectedDate] || [];
         const sports = ['All', ...new Set(eventsForDate.map(event => event.sport).filter(Boolean))].sort();
         
-        // NEW FEATURE: Add a "Live Now" button at the beginning of the filters.
         let sportsHtml = `<button class="filter-btn ${selectedSport === 'Live' ? 'active' : ''}" data-sport="Live">Live Now</button>`;
         
         sportsHtml += sports.map(sport => 
@@ -117,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
             events = events.filter(event => nowInSeconds < (event.unix_timestamp + getEventDuration(event)));
         }
 
-        // NEW FEATURE: Handle the "Live" filter selection.
         if (selectedSport === 'Live') {
              events = events.filter(event => {
                 const duration = getEventDuration(event);

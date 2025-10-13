@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live TV Channels - StreamZone</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html">StreamZone</a></h1>
+            <div class="header-center">
+                </div>
+            <nav class="main-nav">
+                <a href="index.html">Events</a>
+                <a href="tv.html" class="active">Live TV</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container tv-layout">
+        <aside class="tv-sidebar">
+            <div class="filter-group">
+                <label for="country-dropdown">Select a Country:</label>
+                <select id="country-dropdown"></select>
+            </div>
+            <div id="channel-list" class="channel-list-container">
+                <div class="loader"></div>
+            </div>
+        </aside>
+
+        <section class="tv-player-area">
+            <div id="player-container" class="video-container">
+                <div class="player-placeholder">
+                    <h2>Welcome to Live TV</h2>
+                    <p>Select a channel from the list to begin streaming.</p>
+                </div>
+                <iframe id="stream-frame" src="about:blank" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </section>
+    </main>
+
+    <script src="tv.js"></script>
+</body>
+</html>
