@@ -81,11 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventsForDate = allEventsData[selectedDate] || [];
         const sports = ['All', ...new Set(eventsForDate.map(event => event.sport).filter(Boolean))].sort();
         
-        sportFilterEl.innerHTML = sports.map(sport => 
+        // NEW FEATURE: Add a "Live Now" button at the beginning of the filters.
+        let sportsHtml = `<button class="filter-btn ${selectedSport === 'Live' ? 'active' : ''}" data-sport="Live">Live Now</button>`;
+        
+        sportsHtml += sports.map(sport => 
             `<button class="filter-btn ${sport === selectedSport ? 'active' : ''}" data-sport="${sport}">
                 ${sport}
             </button>`
         ).join('');
+
+        sportFilterEl.innerHTML = sportsHtml;
         
         sportFilterEl.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -108,12 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
         yesterday.setDate(today.getDate() - 1);
         const yesterdayString = formatDate(yesterday);
         
-        // Filter out completed events using the new dynamic duration function
         if (selectedDate === yesterdayString || selectedDate === todayString) {
             events = events.filter(event => nowInSeconds < (event.unix_timestamp + getEventDuration(event)));
         }
 
-        if (selectedSport !== 'All') {
+        // NEW FEATURE: Handle the "Live" filter selection.
+        if (selectedSport === 'Live') {
+             events = events.filter(event => {
+                const duration = getEventDuration(event);
+                return nowInSeconds > event.unix_timestamp && nowInSeconds < (event.unix_timestamp + duration);
+            });
+        } else if (selectedSport !== 'All') {
             events = events.filter(event => event.sport === selectedSport);
         }
 
@@ -175,40 +185,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILITY FUNCTIONS ---
-
-    // NEW: Function to get event duration based on sport/tournament
     const getEventDuration = (event) => {
         const DURATION_MAP = {
-            // Specific tournament keywords (checked first)
-            't20': 4 * 3600, // 4 hours
-            
-            // General sport keywords
-            'cricket': 8 * 3600, // 8 hours (ODI default)
-            'golf': 6 * 3600, // 6 hours
-            'motorsport': 4 * 3600, // 4 hours
-            'american football': 3.5 * 3600, // 3.5 hours
+            't20': 4 * 3600,
+            'cricket': 8 * 3600,
+            'golf': 6 * 3600,
+            'motorsport': 4 * 3600,
+            'american football': 3.5 * 3600,
             'nfl': 3.5 * 3600,
-            'football': 2.5 * 3600, // 2.5 hours (Soccer)
+            'football': 2.5 * 3600,
         };
-        const DEFAULT_DURATION = 3 * 3600; // 3 hours
+        const DEFAULT_DURATION = 3 * 3600;
 
         const lowerCaseTournament = event.tournament.toLowerCase();
         const lowerCaseSport = (event.sport || '').toLowerCase();
 
-        // Check for specific keywords first for overrides
         for (const key in DURATION_MAP) {
-            if (lowerCaseTournament.includes(key)) {
-                return DURATION_MAP[key];
-            }
+            if (lowerCaseTournament.includes(key)) return DURATION_MAP[key];
         }
-        
-        // If no specific keyword, check for general sport
         for (const key in DURATION_MAP) {
-            if (lowerCaseSport.includes(key)) {
-                return DURATION_MAP[key];
-            }
+            if (lowerCaseSport.includes(key)) return DURATION_MAP[key];
         }
-
         return DEFAULT_DURATION;
     };
 
