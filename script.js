@@ -2,10 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let allEventsData = {};
     let selectedDate;
-    // CHANGED: selectedSport is no longer hardcoded to 'All' here. It will be set in init().
-    let selectedSport;
+    let selectedSport = 'All';
     let searchQuery = '';
-    const EVENT_DURATION_SECONDS = 3 * 60 * 60; // Assume a 3-hour duration for events
 
     // --- DOM ELEMENTS ---
     const eventListEl = document.getElementById('event-list');
@@ -21,21 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         displayUserTimezone();
         await fetchEvents();
-        
-        // --- NEW LOGIC TO SET DEFAULT SPORT ---
-        // 1. Get the default sport for the user's region.
-        const regionalSport = getRegionalDefaultSport();
-        // 2. Check if that sport has any events scheduled for today.
-        const todaysSports = new Set((allEventsData[selectedDate] || []).map(e => e.sport));
-        if (todaysSports.has(regionalSport)) {
-            // 3. If yes, set it as the default filter.
-            selectedSport = regionalSport;
-        } else {
-            // 4. Otherwise, fallback to 'All'.
-            selectedSport = 'All';
-        }
-        // --- END OF NEW LOGIC ---
-
         setupEventListeners();
         renderPage();
     };
@@ -125,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         yesterday.setDate(today.getDate() - 1);
         const yesterdayString = formatDate(yesterday);
         
+        // Filter out completed events using the new dynamic duration function
         if (selectedDate === yesterdayString || selectedDate === todayString) {
             events = events.filter(event => nowInSeconds < (event.unix_timestamp + getEventDuration(event)));
         }
@@ -191,55 +175,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILITY FUNCTIONS ---
-    
-    // NEW: Function to determine default sport from timezone
-    const getRegionalDefaultSport = () => {
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        // USA & Canada -> American Football
-        if (timeZone.startsWith('America/')) {
-            return 'American Football';
-        }
-        // South Asia -> Cricket
-        if (timeZone.startsWith('Asia/Kolkata') || timeZone.startsWith('Asia/Dhaka') || timeZone.startsWith('Asia/Karachi')) {
-            return 'Cricket';
-        }
-        // Europe -> Football (Soccer)
-        if (timeZone.startsWith('Europe/')) {
-            return 'Football';
-        }
-        // Australia -> Cricket or Rugby; Cricket is a good default
-        if (timeZone.startsWith('Australia/')) {
-            return 'Cricket';
-        }
-        
-        // You can add more rules here for other regions
-
-        // Default for everyone else
-        return 'All';
-    };
-
+    // NEW: Function to get event duration based on sport/tournament
     const getEventDuration = (event) => {
         const DURATION_MAP = {
-            't20': 4 * 3600,
-            'cricket': 8 * 3600,
-            'golf': 6 * 3600,
-            'motorsport': 4 * 3600,
-            'american football': 3.5 * 3600,
+            // Specific tournament keywords (checked first)
+            't20': 4 * 3600, // 4 hours
+            
+            // General sport keywords
+            'cricket': 8 * 3600, // 8 hours (ODI default)
+            'golf': 6 * 3600, // 6 hours
+            'motorsport': 4 * 3600, // 4 hours
+            'american football': 3.5 * 3600, // 3.5 hours
             'nfl': 3.5 * 3600,
-            'football': 2.5 * 3600,
+            'football': 2.5 * 3600, // 2.5 hours (Soccer)
         };
-        const DEFAULT_DURATION = 3 * 3600;
+        const DEFAULT_DURATION = 3 * 3600; // 3 hours
 
         const lowerCaseTournament = event.tournament.toLowerCase();
         const lowerCaseSport = (event.sport || '').toLowerCase();
 
+        // Check for specific keywords first for overrides
         for (const key in DURATION_MAP) {
-            if (lowerCaseTournament.includes(key)) return DURATION_MAP[key];
+            if (lowerCaseTournament.includes(key)) {
+                return DURATION_MAP[key];
+            }
         }
+        
+        // If no specific keyword, check for general sport
         for (const key in DURATION_MAP) {
-            if (lowerCaseSport.includes(key)) return DURATION_MAP[key];
+            if (lowerCaseSport.includes(key)) {
+                return DURATION_MAP[key];
+            }
         }
+
         return DEFAULT_DURATION;
     };
 
