@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIALIZATION ---
     const init = async () => {
-        // CHANGED: This now uses the actual current date and time, so the page will always land on "Today".
         const currentTime = new Date();
         selectedDate = formatDate(currentTime);
         
@@ -70,8 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dateFilterEl.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 selectedDate = btn.dataset.date;
-                selectedSport = 'All'; // Reset sport filter on date change
-                searchQuery = ''; // Reset search
+                selectedSport = 'All';
+                searchQuery = '';
                 searchBarEl.value = '';
                 renderPage();
             });
@@ -91,8 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sportFilterEl.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 selectedSport = btn.dataset.sport;
-                renderEventList(); // No need to re-render everything, just the list
-                // Update active state
+                renderEventList();
                 sportFilterEl.querySelector('.active')?.classList.remove('active');
                 btn.classList.add('active');
             });
@@ -101,31 +99,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderEventList = () => {
         eventListEl.innerHTML = '<div class="loader"></div>';
-
         let events = allEventsData[selectedDate] || [];
         const nowInSeconds = Date.now() / 1000;
 
-        // --- NEW LOGIC ADDED HERE ---
-        // CHANGED: Logic to handle the "Yesterday" tab.
         const today = new Date();
+        const todayString = formatDate(today);
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         const yesterdayString = formatDate(yesterday);
         
-        // If the selected date is yesterday, only show events that might still be live.
-        if (selectedDate === yesterdayString) {
-            // An event is "live" if it started, but hasn't ended. We'll assume a 3-hour duration.
-            const EVENT_DURATION_SECONDS = 3 * 60 * 60; // 3 hours
-            events = events.filter(event => nowInSeconds < (event.unix_timestamp + EVENT_DURATION_SECONDS));
+        // Filter out completed events using the new dynamic duration function
+        if (selectedDate === yesterdayString || selectedDate === todayString) {
+            events = events.filter(event => nowInSeconds < (event.unix_timestamp + getEventDuration(event)));
         }
-        // --- END OF NEW LOGIC ---
 
-        // 1. Filter by Sport
         if (selectedSport !== 'All') {
             events = events.filter(event => event.sport === selectedSport);
         }
 
-        // 2. Filter by Search Query
         if (searchQuery) {
             events = events.filter(event => 
                 event.match.toLowerCase().includes(searchQuery) || 
@@ -138,10 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // 3. Sort by time
         events.sort((a, b) => a.unix_timestamp - b.unix_timestamp);
 
-        // 4. Group by Sport and Tournament
         const groupedEvents = events.reduce((acc, event) => {
             const sport = event.sport || 'General';
             const tournament = event.tournament;
@@ -151,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
         
-        // 5. Generate HTML
         let html = '';
         
         for (const sport in groupedEvents) {
@@ -160,7 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 html += `<div class="tournament-group"><h3 class="tournament-header">${tournament}</h3>`;
                 groupedEvents[sport][tournament].forEach(event => {
                     const eventTime = new Date(event.unix_timestamp * 1000);
-                    const isLive = nowInSeconds > event.unix_timestamp; // Simple check if the event has started
+                    const duration = getEventDuration(event);
+                    const isLive = nowInSeconds > event.unix_timestamp && nowInSeconds < (event.unix_timestamp + duration);
                     const watchUrl = `watch.html?date=${selectedDate}&ts=${event.unix_timestamp}`;
 
                     html += `
@@ -186,6 +175,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILITY FUNCTIONS ---
+
+    // NEW: Function to get event duration based on sport/tournament
+    const getEventDuration = (event) => {
+        const DURATION_MAP = {
+            // Specific tournament keywords (checked first)
+            't20': 4 * 3600, // 4 hours
+            
+            // General sport keywords
+            'cricket': 8 * 3600, // 8 hours (ODI default)
+            'golf': 6 * 3600, // 6 hours
+            'motorsport': 4 * 3600, // 4 hours
+            'american football': 3.5 * 3600, // 3.5 hours
+            'nfl': 3.5 * 3600,
+            'football': 2.5 * 3600, // 2.5 hours (Soccer)
+        };
+        const DEFAULT_DURATION = 3 * 3600; // 3 hours
+
+        const lowerCaseTournament = event.tournament.toLowerCase();
+        const lowerCaseSport = (event.sport || '').toLowerCase();
+
+        // Check for specific keywords first for overrides
+        for (const key in DURATION_MAP) {
+            if (lowerCaseTournament.includes(key)) {
+                return DURATION_MAP[key];
+            }
+        }
+        
+        // If no specific keyword, check for general sport
+        for (const key in DURATION_MAP) {
+            if (lowerCaseSport.includes(key)) {
+                return DURATION_MAP[key];
+            }
+        }
+
+        return DEFAULT_DURATION;
+    };
+
     const formatDate = (date) => {
         const d = new Date(date);
         const year = d.getFullYear();
@@ -195,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const getDisplayDate = (dateString) => {
-        // CHANGED: This now uses the actual current date to correctly label "Today", "Yesterday", etc.
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
@@ -215,5 +240,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- START THE APP ---
     init();
-
 });
