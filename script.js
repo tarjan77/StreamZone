@@ -1,23 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let allEventsData = {};
-    let selectedDate;
     let selectedSport = 'All';
     let searchQuery = '';
 
     // --- DOM ELEMENTS ---
     const eventListEl = document.getElementById('event-list');
-    const dateFilterEl = document.getElementById('date-filter');
     const sportFilterEl = document.getElementById('sport-filter');
     const searchBarEl = document.getElementById('search-bar');
-    // REMOVED: const timezoneEl = document.getElementById('timezone');
-
+    
     // --- INITIALIZATION ---
     const init = async () => {
-        const currentTime = new Date();
-        selectedDate = formatDate(currentTime);
-        
-        // REMOVED: displayUserTimezone(); call
         await fetchEvents();
         setupEventListeners();
         renderPage();
@@ -45,35 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- RENDER FUNCTIONS ---
     const renderPage = () => {
-        renderDateFilters();
         renderSportFilters();
         renderEventList();
     };
-
-    // REMOVED: The entire displayUserTimezone() function is gone.
-    
-    const renderDateFilters = () => {
-        const dates = Object.keys(allEventsData).sort();
-        dateFilterEl.innerHTML = dates.map(date => 
-            `<button class="filter-btn ${date === selectedDate ? 'active' : ''}" data-date="${date}">
-                ${getDisplayDate(date)}
-            </button>`
-        ).join('');
-        
-        dateFilterEl.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                selectedDate = btn.dataset.date;
-                selectedSport = 'All';
-                searchQuery = '';
-                searchBarEl.value = '';
-                renderPage();
-            });
-        });
-    };
     
     const renderSportFilters = () => {
-        const eventsForDate = allEventsData[selectedDate] || [];
-        const sports = ['All', ...new Set(eventsForDate.map(event => event.sport).filter(Boolean))].sort();
+        const allEvents = Object.values(allEventsData).flat();
+        const sports = ['All', ...new Set(allEvents.map(event => event.sport).filter(Boolean))].sort();
         
         let sportsHtml = `<button class="filter-btn ${selectedSport === 'Live' ? 'active' : ''}" data-sport="Live">Live Now</button>`;
         
@@ -97,19 +68,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderEventList = () => {
         eventListEl.innerHTML = '<div class="loader"></div>';
-        let events = allEventsData[selectedDate] || [];
+        
+        const allUpcomingEvents = Object.values(allEventsData).flat();
         const nowInSeconds = Date.now() / 1000;
 
-        const today = new Date();
-        const todayString = formatDate(today);
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-        const yesterdayString = formatDate(yesterday);
-        
-        if (selectedDate === yesterdayString || selectedDate === todayString) {
-            events = events.filter(event => nowInSeconds < (event.unix_timestamp + getEventDuration(event)));
-        }
+        // --- CORE LOGIC CHANGE ---
+        // 1. Define the 24-hour time limit from the current time.
+        const twentyFourHoursInSeconds = 24 * 60 * 60;
+        const timeLimit = nowInSeconds + twentyFourHoursInSeconds;
 
+        // 2. Filter the master list:
+        //    - Keep events that are NOT over yet.
+        //    - AND keep events that will start within the next 24 hours.
+        let events = allUpcomingEvents.filter(event => {
+            const isNotOver = nowInSeconds < (event.unix_timestamp + getEventDuration(event));
+            const isWithin24Hours = event.unix_timestamp < timeLimit;
+            return isNotOver && isWithin24Hours;
+        });
+        // --- END OF CORE LOGIC CHANGE ---
+
+        // Apply user filters (Live, Sport, Search)
         if (selectedSport === 'Live') {
              events = events.filter(event => {
                 const duration = getEventDuration(event);
@@ -133,26 +111,36 @@ document.addEventListener('DOMContentLoaded', () => {
         
         events.sort((a, b) => a.unix_timestamp - b.unix_timestamp);
 
-        const groupedEvents = events.reduce((acc, event) => {
-            const sport = event.sport || 'General';
-            const tournament = event.tournament;
-            if (!acc[sport]) acc[sport] = {};
-            if (!acc[sport][tournament]) acc[sport][tournament] = [];
-            acc[sport][tournament].push(event);
+        const groupedByDate = events.reduce((acc, event) => {
+            const localDate = formatDate(new Date(event.unix_timestamp * 1000));
+            if (!acc[localDate]) acc[localDate] = [];
+            acc[localDate].push(event);
             return acc;
         }, {});
         
         let html = '';
-        
-        for (const sport in groupedEvents) {
-            html += `<div class="sport-group"><h2 class="sport-header">${sport}</h2>`;
-            for (const tournament in groupedEvents[sport]) {
-                html += `<div class="tournament-group"><h3 class="tournament-header">${tournament}</h3>`;
-                groupedEvents[sport][tournament].forEach(event => {
+        const todayString = formatDate(new Date());
+
+        for (const date in groupedByDate) {
+            const displayDate = date === todayString ? 'Today' : getDisplayDate(date);
+            html += `<div class="sport-group"><h2 class="sport-header">${displayDate} - ${date}</h2>`;
+            
+            const groupedBySport = groupedByDate[date].reduce((acc, event) => {
+                const sport = event.sport || 'General';
+                if (!acc[sport]) acc[sport] = [];
+                acc[sport].push(event);
+                return acc;
+            }, {});
+
+            for (const sport in groupedBySport) {
+                 html += `<h3 class="tournament-header" style="font-size: 1.5rem; margin-top: 1.5rem;">${sport}</h3>`;
+                 groupedBySport[sport].forEach(event => {
                     const eventTime = new Date(event.unix_timestamp * 1000);
                     const duration = getEventDuration(event);
                     const isLive = nowInSeconds > event.unix_timestamp && nowInSeconds < (event.unix_timestamp + duration);
-                    const watchUrl = `watch.html?date=${selectedDate}&ts=${event.unix_timestamp}`;
+                    const eventJsonDate = formatDate(eventTime, 'UTC');
+
+                    const watchUrl = `watch.html?date=${eventJsonDate}&ts=${event.unix_timestamp}`;
 
                     html += `
                         <div class="event-card">
@@ -167,8 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <a href="${watchUrl}" class="watch-btn" target="_blank" rel="noopener noreferrer">Watch Now &raquo;</a>
                         </div>
                     `;
-                });
-                html += `</div>`;
+                 });
             }
             html += `</div>`;
         }
@@ -179,19 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILITY FUNCTIONS ---
     const getEventDuration = (event) => {
         const DURATION_MAP = {
-            't20': 4 * 3600,
-            'cricket': 8 * 3600,
-            'golf': 6 * 3600,
-            'motorsport': 4 * 3600,
-            'american football': 3.5 * 3600,
-            'nfl': 3.5 * 3600,
-            'football': 2.5 * 3600,
+            't20': 4 * 3600, 'cricket': 8 * 3600, 'golf': 6 * 3600,
+            'motorsport': 4 * 3600, 'american football': 3.5 * 3600,
+            'nfl': 3.5 * 3600, 'football': 2.5 * 3600,
         };
         const DEFAULT_DURATION = 3 * 3600;
-
         const lowerCaseTournament = event.tournament.toLowerCase();
         const lowerCaseSport = (event.sport || '').toLowerCase();
-
         for (const key in DURATION_MAP) {
             if (lowerCaseTournament.includes(key)) return DURATION_MAP[key];
         }
@@ -201,26 +182,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return DEFAULT_DURATION;
     };
 
-    const formatDate = (date) => {
-        const d = new Date(date);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+    const formatDate = (date, timezone) => {
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+        if (timezone === 'UTC') {
+            options.timeZone = 'UTC';
+        }
+        const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(date);
+        const year = parts.find(p => p.type === 'year').value;
+        const month = parts.find(p => p.type === 'month').value;
+        const day = parts.find(p => p.type === 'day').value;
         return `${year}-${month}-${day}`;
     };
-
+    
     const getDisplayDate = (dateString) => {
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-
-        if (dateString === formatDate(today)) return 'Today';
-        if (dateString === formatDate(yesterday)) return 'Yesterday';
-        if (dateString === formatDate(tomorrow)) return 'Tomorrow';
-        
-        return dateString;
+        const date = new Date(dateString + 'T12:00:00'); // Use midday to avoid timezone shifts
+        return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     };
     
     const formatTime = (date) => {
