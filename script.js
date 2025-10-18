@@ -166,9 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILITY FUNCTIONS ---
     const getEventDuration = (event) => {
         const DURATION_MAP = {
-            't20': 4 * 3600, 'cricket': 8 * 3600, 'golf': 6 * 3600,
-            'motorsport': 4 * 3600, 'american football': 3.5 * 3600,
-            'nfl': 3.5 * 3600, 'football': 2.5 * 3600,
+            't20': 4 * 3600, 'cricket': 8.5 * 3600, 'golf': 6 * 3600,
+            'motorsport': 4 * 3600, 'american football': 5 * 3600,
+            'nfl': 3.5 * 3600, 'football': 3 * 3600,
         };
         const DEFAULT_DURATION = 3 * 3600;
         const lowerCaseTournament = event.tournament.toLowerCase();
@@ -205,4 +205,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- START THE APP ---
     init();
+
 });
